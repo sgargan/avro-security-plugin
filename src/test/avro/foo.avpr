@@ -1,0 +1,17 @@
+{"namespace": "com.sprocketry.avro.security",
+ "protocol": "Foo",
+ "types": [ {"type": "record", "name": "Bar",
+            "fields": [ {"name": "x", "type": "int"} ]}
+            ,
+            {"type": "error", "name": "Baz",
+            "fields": [ {"name": "message", "type": "string"} ]}
+          ]
+ ,
+ "messages": {
+     "foo": {
+         "request": [{"name": "bar", "type": "Bar"}],
+         "response": "int",
+         "errors": ["Baz"]
+     }
+ } 
+}

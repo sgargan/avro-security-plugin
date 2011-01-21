@@ -1,0 +1,21 @@
+{
+    "type":"record","name":"Authentication",
+    "namespace":"org.apache.avro.security",
+    "fields":[ {"name" : "data", "type" : [
+        {
+            "type":"record","name":"Credentials",
+            "fields":[
+                {"name":"username","type":"string"},
+                {"name": "password", "type": "string"}
+            ]
+        },
+        {
+           "type":"record","name":"Ticket",
+           "fields":[
+                {"name":"digest","type":"bytes"},
+                {"name": "expiry", "type":"long"}
+            ]
+        }
+        ]}]
+}
+
