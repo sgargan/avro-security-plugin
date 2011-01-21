@@ -12,11 +12,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.test.annotation.ExpectedException;
 
-public class AbstractAuthenticationStrategyTest {
+public abstract class AbstractAuthenticationStrategyTest {
 
     @Autowired
     @Qualifier("testService")
-    protected TestFooImpl testImpl;
+    protected MockFoo testImpl;
 
     @Autowired
     protected AuthenticationPlugin serverPlugin;

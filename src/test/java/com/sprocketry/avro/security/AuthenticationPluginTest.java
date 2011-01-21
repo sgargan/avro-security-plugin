@@ -12,6 +12,7 @@ import java.nio.ByteBuffer;
 import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.Protocol;
 import org.apache.avro.generic.GenericResponder;
+import org.apache.avro.ipc.AvroRemoteException;
 import org.apache.avro.ipc.LocalTransceiver;
 import org.apache.avro.security.Ticket;
 import org.apache.avro.specific.SpecificRequestor;
@@ -25,85 +26,112 @@ import org.junit.Test;
  */
 public class AuthenticationPluginTest {
 
-    private MockResponder testResponder;
-    private SpecificRequestor testRequestor;
-    private Foo client;
-    private Protocol protocol;
+	private MockResponder testResponder;
+	private SpecificRequestor testRequestor;
+	private Foo client;
+	private Protocol protocol;
 
-    private AuthenticationPlugin clientPlugin;
-    private AuthenticationPlugin serverPlugin;
+	private AuthenticationPlugin clientPlugin;
+	private AuthenticationPlugin serverPlugin;
 
-    private String username = "rredford";
-    private String password = "afghanistanbananastand";
-    private Ticket ticket;
-    private Bar bar;
+	private String username = "rredford";
+	private String password = "afghanistanbananastand";
+	private Ticket ticket;
+	private Bar bar;
 
-    @Test
-    public void authenticationDetailsGetSentAsMetadata() throws Exception {
+	@Test
+	public void authenticationDetailsGetSentAsMetadata() throws Exception {
 
-        AuthenticationStrategy mockStrategy = mock(AuthenticationStrategy.class);
-        when(mockStrategy.authenticate(eq(new Utf8(username)), eq(new Utf8(password)), any(Protocol.Message.class))).thenReturn(ticket);
-        serverPlugin.setAuthenticationStrategy(mockStrategy);
+		AuthenticationStrategy mockStrategy = setupValidMockResponse();
+		client.foo(bar);
+		verify(mockStrategy).authenticate(eq(new Utf8(username)), eq(new Utf8(password)), any(Protocol.Message.class));
+		client.foo(bar);
+		verify(mockStrategy).verifyTicket(any(Ticket.class), any(Protocol.Message.class));
+		testResponder.assertIsSatisfied();
+	}
 
-        client.foo(bar);
-        verify(mockStrategy).authenticate(eq(new Utf8(username)), eq(new Utf8(password)), any(Protocol.Message.class));
-        client.foo(bar);
-        verify(mockStrategy).verifyTicket(any(Ticket.class), any(Protocol.Message.class));
-        testResponder.assertIsSatisfied();
-    }
+	@Test
+	public void authenticationFailureGetsReturnedAsMetadata() throws Exception {
 
-    @Test
-    public void authenticationFailureGetsReturnedAsMetadata() throws Exception {
+		AuthenticationStrategy mockStrategy = mock(AuthenticationStrategy.class);
+		when(mockStrategy.authenticate(eq(new Utf8(username)), eq(new Utf8(password)), any(Protocol.Message.class)))
+				.thenThrow(new RuntimeException("Authentication error: Incorrect credentials"));
+		serverPlugin.setAuthenticationStrategy(mockStrategy);
 
-        AuthenticationStrategy mockStrategy = mock(AuthenticationStrategy.class);
-        when(mockStrategy.authenticate(eq(new Utf8(username)), eq(new Utf8(password)), any(Protocol.Message.class)))
-                .thenThrow(new RuntimeException("Authentication error: Incorrect credentials"));
-        serverPlugin.setAuthenticationStrategy(mockStrategy);
+		makeFailingRequest();
+	}
 
-        try {
-            client.foo(bar);
-            Assert.fail();
-        } catch (AvroRuntimeException e) {}
-    }
+	@Test
+	public void errorWhenPluginNotOnBothSides() throws Exception {
+		setupValidMockResponse();
+		testRequestor = new SpecificRequestor(Foo.class, new LocalTransceiver(testResponder));
+		client = SpecificRequestor.getClient(Foo.class, testRequestor);
+		makeFailingRequest();
+	}
 
-    @Before
-    public void setupPlugin() throws Exception {
-        protocol = Protocol.parse(new File("src/test/avro/foo.avpr"));
-        testResponder = new MockResponder(protocol);
-        testRequestor = new SpecificRequestor(Foo.class, new LocalTransceiver(testResponder));
-        client = SpecificRequestor.getClient(Foo.class, testRequestor);
+	@Test
+	public void errorWhenNoStrategyPresent() throws Exception {
+		try {
+			client.foo(bar);
+			Assert.fail();
+		} catch (AvroRuntimeException e) {
+		}
+	}
 
-        clientPlugin = new AuthenticationPlugin();
-        serverPlugin = new AuthenticationPlugin();
-        testRequestor.addRPCPlugin(clientPlugin);
-        testResponder.addRPCPlugin(serverPlugin);
+	@Before
+	public void setupPlugin() throws Exception {
+		protocol = Protocol.parse(new File("src/test/avro/foo.avpr"));
+		testResponder = new MockResponder(protocol);
+		testRequestor = new SpecificRequestor(Foo.class, new LocalTransceiver(testResponder));
+		client = SpecificRequestor.getClient(Foo.class, testRequestor);
 
-        clientPlugin.setUsername(username);
-        clientPlugin.setPassword(password);
+		clientPlugin = new AuthenticationPlugin();
+		serverPlugin = new AuthenticationPlugin();
+		testRequestor.addRPCPlugin(clientPlugin);
+		testResponder.addRPCPlugin(serverPlugin);
 
-        ticket = new Ticket();
-        ticket.digest = ByteBuffer.wrap("abbaabbacdcdee".getBytes());
-        ticket.expiry = 12345l;
+		clientPlugin.setUsername(username);
+		clientPlugin.setPassword(password);
 
-        bar = new Bar();
-        bar.x = 12345;
-    }
+		ticket = new Ticket();
+		ticket.digest = ByteBuffer.wrap("abbaabbacdcdee".getBytes());
+		ticket.expiry = 12345l;
 
-    private static class MockResponder extends GenericResponder {
+		bar = new Bar();
+		bar.x = 12345;
+	}
 
-        private boolean called;
+	private void makeFailingRequest() throws AvroRemoteException, Baz {
+		try {
+			client.foo(bar);
+			Assert.fail();
+		} catch (AvroRuntimeException e) {
+		}
+	}
 
-        MockResponder(Protocol protocol) {
-            super(protocol);
-        }
+	private AuthenticationStrategy setupValidMockResponse() {
+		AuthenticationStrategy mockStrategy = mock(AuthenticationStrategy.class);
+		when(mockStrategy.authenticate(eq(new Utf8(username)), eq(new Utf8(password)), any(Protocol.Message.class)))
+				.thenReturn(ticket);
+		serverPlugin.setAuthenticationStrategy(mockStrategy);
+		return mockStrategy;
+	}
 
-        public Object respond(Protocol.Message message, Object request) throws Exception {
-            called = true;
-            return new Integer(4567);
-        }
+	private static class MockResponder extends GenericResponder {
 
-        public void assertIsSatisfied() {
-            Assert.assertTrue(called);
-        }
-    }
+		private boolean called;
+
+		MockResponder(Protocol protocol) {
+			super(protocol);
+		}
+
+		public Object respond(Protocol.Message message, Object request) throws Exception {
+			called = true;
+			return new Integer(4567);
+		}
+
+		public void assertIsSatisfied() {
+			Assert.assertTrue(called);
+		}
+	}
 }

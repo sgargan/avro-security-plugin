@@ -15,11 +15,11 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 @ContextConfiguration("/avro-shiro-security-context.xml")
 public class ShiroAuthenticationStrategyTest extends AbstractAuthenticationStrategyTest {
 
-    @Autowired
-    private SecurityManager securityManager;
+	@Autowired
+	private SecurityManager securityManager;
 
-    @Before
-    public void setupSecurityManager() throws Exception {
-        SecurityUtils.setSecurityManager(securityManager);
-    }
+	@Before
+	public void setupSecurityManager() throws Exception {
+		SecurityUtils.setSecurityManager(securityManager);
+	}
 }

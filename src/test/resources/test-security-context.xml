@@ -3,7 +3,7 @@
 	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
                         http://www.springframework.org/schema/security http://www.springframework.org/schema/security/spring-security-3.0.3.xsd">
 
-	<bean name="testService" class="com.sprocketry.avro.security.TestFooImpl" />
+	<bean name="testService" class="com.sprocketry.avro.security.MockFoo" />
 
 	<bean name="authenticationPlugin" class="com.sprocketry.avro.security.AuthenticationPlugin"
 		autowire="byType" />
