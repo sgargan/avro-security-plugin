@@ -15,52 +15,57 @@ import com.sprocketry.avro.security.AuthenticationStrategy;
 import com.sprocketry.avro.security.TicketCache;
 
 /**
- * <code>SpringAuthenticationStrategy</code> uses Spring's Security framework to
- * authenticate the user and authorize the request avro operation.
+ * <code>SpringAuthenticationStrategy</code> uses Spring's Security framework to authenticate the user and
+ * authorize the request avro operation. If successful, the authentication is cached in the {@link TicketCache} and
+ * the ticket returned to the client. If the client supplies this ticket in subsequent operations the cached 
+ * authentication will be retrieved and restored to the security context and in this way the overhead 
+ * of repeatedly authenticating can be avoided.
+ * 
+ * @see TicketCache
  */
 public class SpringAuthenticationStrategy implements AuthenticationStrategy {
 
-    @Autowired
-    private AuthenticationManager authenticationManager;
+	@Autowired
+	private AuthenticationManager authenticationManager;
 
-    @Autowired
-    private UserDetailsService userService;
+	@Autowired
+	private UserDetailsService userService;
 
-    @Autowired
-    private TicketCache<UsernamePasswordAuthenticationToken> ticketCache;
+	@Autowired
+	private TicketCache<UsernamePasswordAuthenticationToken> ticketCache;
 
-    @Override
-    public Ticket authenticate(CharSequence username, CharSequence password, Message message) {
+	@Override
+	public Ticket authenticate(CharSequence username, CharSequence password, Message message) {
 
-        username = username.toString();
-        password = password.toString();
-        UserDetails details = userService.loadUserByUsername(username.toString());
-        Ticket ticket = new Ticket();
-        if (details != null) {
-            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                    username, password, details.getAuthorities());
-            auth.setDetails(details);
+		username = username.toString();
+		password = password.toString();
+		UserDetails details = userService.loadUserByUsername(username.toString());
+		Ticket ticket = new Ticket();
+		if (details != null) {
+			UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(username, password,
+					details.getAuthorities());
+			auth.setDetails(details);
 
-            auth = (UsernamePasswordAuthenticationToken) authenticationManager.authenticate(auth);
-            if (auth != null) {
-                SecurityContextHolder.getContext().setAuthentication(auth);
-                ticket = ticketCache.createTicket((String) username, (String) password, auth);
-            }
-        } else {
-            throw new AuthenticationException("Error authenticating user '" + username + "'");
-        }
-        return ticket;
-    }
+			auth = (UsernamePasswordAuthenticationToken) authenticationManager.authenticate(auth);
+			if (auth != null) {
+				SecurityContextHolder.getContext().setAuthentication(auth);
+				ticket = ticketCache.createTicket((String) username, (String) password, auth);
+			}
+		} else {
+			throw new AuthenticationException("Error authenticating user '" + username + "'");
+		}
+		return ticket;
+	}
 
-    @Override
-    public Ticket verifyTicket(Ticket ticket, Message message) {
+	@Override
+	public Ticket verifyTicket(Ticket ticket, Message message) {
 
-        if (ticket != null) {
-            Authentication auth = ticketCache.getAuthentication(ticket);
-            if (auth != null) {
-                SecurityContextHolder.getContext().setAuthentication(auth);
-            }
-        }
-        return ticket;
-    }
+		if (ticket != null) {
+			Authentication auth = ticketCache.getAuthentication(ticket);
+			if (auth != null) {
+				SecurityContextHolder.getContext().setAuthentication(auth);
+			}
+		}
+		return ticket;
+	}
 }
